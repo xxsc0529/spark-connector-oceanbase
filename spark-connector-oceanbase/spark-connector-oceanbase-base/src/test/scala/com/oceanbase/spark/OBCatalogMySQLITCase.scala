@@ -35,6 +35,9 @@ class OBCatalogMySQLITCase extends OceanBaseMySQLTestBase {
 
   @AfterEach
   def afterEach(): Unit = {
+    SparkSession.getActiveSession.foreach(_.stop())
+    SparkSession.clearActiveSession()
+    SparkSession.clearDefaultSession()
     dropTables(
       "products",
       "products_no_pri_key",
@@ -210,6 +213,7 @@ class OBCatalogMySQLITCase extends OceanBaseMySQLTestBase {
       "[test,products_no_pri_key,false]",
       "[test,products_full_pri_key,false]",
       "[test,products_no_int_pri_key,false]",
+      "[test,products_reserved_word_pri_key,false]",
       "[test,products_unique_key,false]",
       "[test,products_full_unique_key,false]",
       "[test,products_pri_and_unique_key,false]",

@@ -543,7 +543,10 @@ object OBJdbcReader extends SQLConfHelper {
 
     val convertedElements = elements.map {
       elem =>
-        if (elem == "null" || elem.isEmpty) {
+        // OceanBase normalizes null array elements to upper-case NULL, while quoted
+        // string elements keep their quotes at this stage, so a case-insensitive match
+        // cannot mistake a quoted 'null' string for a real null.
+        if (elem.trim.equalsIgnoreCase("null") || elem.isEmpty) {
           null
         } else {
           elementType match {
