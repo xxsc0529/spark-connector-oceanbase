@@ -18,6 +18,8 @@ package com.oceanbase.spark
 import org.apache.spark.sql.SparkSession
 import org.junit.jupiter.api.{AfterAll, BeforeAll, Test}
 
+import java.sql.DriverManager
+
 /** TEMPORARY DIAGNOSTIC - DO NOT MERGE. Prints raw ARRAY text round-trip behavior. */
 class ArrayEscapeProbeITCase extends OceanBaseMySQLTestBase {
 
@@ -94,6 +96,45 @@ class ArrayEscapeProbeITCase extends OceanBaseMySQLTestBase {
       st.close()
     } finally {
       conn.close()
+    }
+  }
+
+  /**
+   * Compares executeBatch round-trips with rewriteBatchedStatements=true (the connector's default)
+   * vs false, using the exact array text the writer emits.
+   */
+  @Test
+  def probeRewriteBatch(): Unit = {
+    Seq("false", "true").foreach {
+      rw =>
+        val conn = DriverManager.getConnection(
+          getJdbcUrl + "&rewriteBatchedStatements=" + rw,
+          getUsername,
+          getPassword)
+        try {
+          val st = conn.createStatement()
+          st.execute(s"DROP TABLE IF EXISTS $getSchemaName.t_arr_rw")
+          st.execute(
+            s"CREATE TABLE $getSchemaName.t_arr_rw (id INT PRIMARY KEY, arr ARRAY(VARCHAR(255)))")
+          val ps =
+            conn.prepareStatement(s"INSERT INTO $getSchemaName.t_arr_rw (id, arr) VALUES (?, ?)")
+          ps.setInt(1, 1)
+          ps.setString(2, "[null, \"换行\\\\n值\"]")
+          ps.addBatch()
+          ps.setInt(1, 2)
+          ps.setString(2, "[\"a\\\"b\", \"x,y\"]")
+          ps.addBatch()
+          ps.executeBatch()
+          val rs = st.executeQuery(s"SELECT id, arr FROM $getSchemaName.t_arr_rw ORDER BY id")
+          while (rs.next()) {
+            System.out.println(
+              s"PROBE_RW rewrite=$rw id=" + rs.getInt(1) + " value=" + visualize(rs.getString(2)))
+          }
+          st.execute(s"DROP TABLE IF EXISTS $getSchemaName.t_arr_rw")
+          st.close()
+        } finally {
+          conn.close()
+        }
     }
   }
 
