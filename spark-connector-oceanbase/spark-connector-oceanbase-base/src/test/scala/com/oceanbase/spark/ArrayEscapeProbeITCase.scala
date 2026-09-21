@@ -44,7 +44,8 @@ class ArrayEscapeProbeITCase extends OceanBaseMySQLTestBase {
       st.execute(s"DROP TABLE IF EXISTS $getSchemaName.t_arr_probe")
       st.execute(
         s"CREATE TABLE $getSchemaName.t_arr_probe (id INT PRIMARY KEY, arr ARRAY(VARCHAR(255)))")
-      val ps = conn.prepareStatement(s"INSERT INTO $getSchemaName.t_arr_probe (id, arr) VALUES (?, ?)")
+      val ps =
+        conn.prepareStatement(s"INSERT INTO $getSchemaName.t_arr_probe (id, arr) VALUES (?, ?)")
 
       // id -> input array-text (as delivered to the server, i.e. what the connector
       // would pass to PreparedStatement.setString)
