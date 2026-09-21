@@ -15,6 +15,7 @@
  */
 package com.oceanbase.spark
 
+import org.apache.spark.sql.SparkSession
 import org.junit.jupiter.api.{AfterAll, BeforeAll, Test}
 
 /** TEMPORARY DIAGNOSTIC - DO NOT MERGE. Prints raw ARRAY text round-trip behavior. */
@@ -92,6 +93,50 @@ class ArrayEscapeProbeITCase extends OceanBaseMySQLTestBase {
       st.execute(s"DROP TABLE IF EXISTS $getSchemaName.t_arr_probe")
       st.close()
     } finally {
+      conn.close()
+    }
+  }
+
+  /**
+   * Replicates the real catalog test flow: Spark SQL INSERT, then compare raw JDBC read vs Spark
+   * reader output.
+   */
+  @Test
+  def probeViaSparkCatalog(): Unit = {
+    val conn = getJdbcConnection()
+    val st = conn.createStatement()
+    val session = SparkSession
+      .builder()
+      .master("local[*]")
+      .config("spark.sql.catalog.ob", "com.oceanbase.spark.catalog.OceanBaseCatalog")
+      .config("spark.sql.catalog.ob.url", getJdbcUrl)
+      .config("spark.sql.catalog.ob.username", getUsername)
+      .config("spark.sql.catalog.ob.password", getPassword)
+      .config("spark.sql.catalog.ob.schema-name", getSchemaName)
+      .getOrCreate()
+    try {
+      st.execute(s"DROP TABLE IF EXISTS $getSchemaName.products_string_arrays")
+      st.execute(
+        s"CREATE TABLE $getSchemaName.products_string_arrays (id INTEGER NOT NULL PRIMARY KEY, interests ARRAY(VARCHAR(255)))")
+      session.sql("use ob;")
+      session.sql(s"""
+                     |INSERT INTO $getSchemaName.products_string_arrays VALUES
+                     |(3, array(null, '换行\\n值')),
+                     |(2, array('a\"b', 'x,y'))
+                     |""".stripMargin)
+      val rs = st.executeQuery(
+        s"SELECT id, interests FROM $getSchemaName.products_string_arrays ORDER BY id")
+      while (rs.next()) {
+        System.out.println("PROBE_RAW id=" + rs.getInt(1) + " value=" + visualize(rs.getString(2)))
+      }
+      session
+        .sql(s"SELECT * FROM $getSchemaName.products_string_arrays ORDER BY id")
+        .collect()
+        .foreach(r => System.out.println("PROBE_SPARK " + visualize(r.toString())))
+    } finally {
+      session.stop()
+      st.execute(s"DROP TABLE IF EXISTS $getSchemaName.products_string_arrays")
+      st.close()
       conn.close()
     }
   }
