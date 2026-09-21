@@ -97,6 +97,28 @@ class ArrayEscapeProbeITCase extends OceanBaseMySQLTestBase {
     }
   }
 
+  /** Prints how Spark parses the SQL string literals used by the real test. */
+  @Test
+  def probeSparkLiterals(): Unit = {
+    val session = SparkSession.builder().master("local[*]").getOrCreate()
+    try {
+      System.out.println(
+        "PROBE_LITERAL escapedStringLiterals=" +
+          session.conf.get("spark.sql.parser.escapedStringLiterals", "unset"))
+      // same SQL text as the real test receives (Scala triple-quoted source keeps two backslashes)
+      val v1 = session.sql("SELECT '换行\\\\n值'").collect().head.getString(0)
+      System.out.println("PROBE_LITERAL 2BS: " + visualize(v1))
+      val v2 = session.sql("SELECT 'a\\\\b'").collect().head.getString(0)
+      System.out.println("PROBE_LITERAL 2BS+b: " + visualize(v2))
+      val v3 = session.sql("SELECT '换行\\\\\\\\n值'").collect().head.getString(0)
+      System.out.println("PROBE_LITERAL 4BS: " + visualize(v3))
+      val v4 = session.sql("SELECT 'a\"b'").collect().head.getString(0)
+      System.out.println("PROBE_LITERAL BS+Q: " + visualize(v4))
+    } finally {
+      session.stop()
+    }
+  }
+
   /**
    * Replicates the real catalog test flow: Spark SQL INSERT, then compare raw JDBC read vs Spark
    * reader output.
