@@ -104,7 +104,8 @@ class ArrayEscapeProbeITCase extends OceanBaseMySQLTestBase {
     try {
       System.out.println(
         "PROBE_LITERAL escapedStringLiterals=" +
-          session.conf.get("spark.sql.parser.escapedStringLiterals", "unset"))
+          (try session.conf.get("spark.sql.parser.escapedStringLiterals")
+          catch { case _: Exception => "unset" }))
       // same SQL text as the real test receives (Scala triple-quoted source keeps two backslashes)
       val v1 = session.sql("SELECT '换行\\\\n值'").collect().head.getString(0)
       System.out.println("PROBE_LITERAL 2BS: " + visualize(v1))
