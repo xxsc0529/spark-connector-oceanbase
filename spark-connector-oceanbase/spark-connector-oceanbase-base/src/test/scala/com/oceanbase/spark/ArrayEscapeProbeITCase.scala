@@ -69,10 +69,17 @@ class ArrayEscapeProbeITCase extends OceanBaseMySQLTestBase {
       )
       inputs.foreach {
         case (id, text) =>
-          ps.setInt(1, id)
-          ps.setString(2, text)
-          ps.execute()
-          System.out.println(s"PROBE_SEND id=$id " + visualize(text))
+          try {
+            ps.setInt(1, id)
+            ps.setString(2, text)
+            ps.execute()
+            System.out.println(s"PROBE_SEND_OK id=$id " + visualize(text))
+          } catch {
+            case e: Exception =>
+              System.out.println(
+                s"PROBE_SEND_FAIL id=$id " + visualize(text) + " err=" +
+                  e.getMessage.replaceAll("\\s+", " ").take(100))
+          }
       }
 
       val rs = st.executeQuery(s"SELECT id, arr FROM $getSchemaName.t_arr_probe ORDER BY id")
